@@ -1,4 +1,5 @@
 {
+  "name": "builder",
   "scripts": {
     "build": "node ./builder/index.js --report-uncaught-exception",
     "dev": "node ./builder/dev-api.js --report-uncaught-exception",
