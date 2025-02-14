@@ -4,6 +4,10 @@
     "dev": "node ./builder/dev-api.js --report-uncaught-exception",
     "start": "node ./builder/dev-api.js --report-uncaught-exception"
   },
+  "bin": {
+    "build": "bin/build",
+    "develop": "bin/develop"
+  },
   "dependencies": {
     "cors": "^2.8.5",
     "express": "^4.19.2",
