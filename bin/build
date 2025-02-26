@@ -8,9 +8,11 @@ const args = parseArgs({
     target: [['t', 'default'], null, 'Which file to make a build of. Acts as a supliment to the entry when a folder.'],
     output: [['o'], 'dist', 'Where to put build outputs.'],
     domain: [['d'], null, 'The sftp domain name to output to.'],
+    nostdio: [['n', 'nostdio', 'no-stdio', 'no-token-debug'], false, 'If the builder should or should not have direct stdio communication.']
     username: [['user', 'u', 'n', 'name'], null, 'The login username of the sftp server.'],
     password: [['pass', 'p', 'l', 'login'], null, 'The login password of the sftp server.']
 }, process.argv);
+global.nostd = args.nostdio;
 const manager = new PrecompManager(args.output, args.domain, args.username, args.password);
 if (args.target) {
     if (fs.statSync(args.target).isDirectory()) {
