@@ -12,7 +12,7 @@ const args = parseArgs({
     username: [['user', 'u', 'n', 'name'], null, 'The login username of the sftp server.'],
     password: [['pass', 'p', 'l', 'login'], null, 'The login password of the sftp server.']
 }, process.argv);
-global.nostd = args.nostdio;
+global.nostd = args.nostdio[0] === 't' || args.nostdio[0] === 'y';
 const manager = new PrecompManager(args.output, args.domain, args.username, args.password);
 if (args.target) {
     if (fs.statSync(args.target).isDirectory()) {
