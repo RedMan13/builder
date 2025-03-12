@@ -10,6 +10,7 @@ const mime = require('mime');
 const { EventEmitter } = require('stream');
 
 globalThis.isBuild = true;
+global.nostd = false;
 const manager = new PrecompManager('dist');
 process.on('exit', () => fs.rmSync(manager.buildDir, { recursive: true, force: true }));
 const evs = new EventEmitter();
