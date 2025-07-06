@@ -68,7 +68,7 @@ manager.buildAll().then(() => {
         if (ev === 'change') changed.push(file);
         else evs.emit('removed'. file);
     });
-    setInterval(async () => {
+    async function checkRebuild() {
         if (needsRebuild) {
             needsRebuild = false;
             const withRemoved = Object.keys(manager.built);
@@ -77,8 +77,9 @@ manager.buildAll().then(() => {
                 if (!withRemoved.includes(file) && changed.includes(file))
                     evs.emit('update', file);
         }
-        
-    }, 3000);
+        setTimeout(checkRebuild, 3000);
+    }
+    checkRebuild();
     app.listen(port, async () => {
         console.log(`hosted on http://localhost:${port}`);
         console.log('');
