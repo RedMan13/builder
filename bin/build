@@ -21,7 +21,7 @@ const args = parseArgs({
     nonode: [['no-node', 'nonodemodules', 'no-node-modules'], false, 'If node_modules should or should not be copied']
 }, process.argv);
 global.nostd = args.nostdio[0] === 't' || args.nostdio[0] === 'y';
-const manager = new PrecompManager(args.output, args.nonode, args.domain, args.username, args.password);
+const manager = new PrecompManager(args.output, !args.nonode, args.domain, args.username, args.password);
 const promise = (() => {
     if (args.target) {
         if (fs.statSync(args.target).isDirectory()) {
