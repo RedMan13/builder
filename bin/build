@@ -3,25 +3,123 @@ const PrecompManager = require('../lib/precomp-manager');
 const parseArgs = require('../lib/argument-parser');
 const fs = require('fs');
 const path = require('path');
+const { WebSocketExpress } = require('websocket-express');
+const cors = require('cors')
+const app = new WebSocketExpress();
+const runPHP = require('../lib/php-execute.js');
+const mime = require('mime');
+const { EventEmitter } = require('stream');
 
 const args = parseArgs({
     target: [['t', 'default'], null, 'Which file to make a build of. Acts as a supliment to the entry when a folder.'],
     output: [['o'], 'dist', 'Where to put build outputs.'],
     domain: [['d'], null, 'The sftp domain name to output to.'],
-    nostdio: [['n', 'nostdio', 'no-stdio', 'no-token-debug'], false, 'If the builder should or should not have direct stdio communication.'],
+    nostdio: [['n', 'nostd', 'nostdio', 'no-std', 'no-stdio', 'no-token-debug'], false, 'If the builder should or should not have direct stdio communication.'],
     username: [['user', 'u', 'n', 'name'], null, 'The login username of the sftp server.'],
-    password: [['pass', 'p', 'l', 'login'], null, 'The login password of the sftp server.']
+    password: [['pass', 'p', 'l', 'login'], null, 'The login password of the sftp server.'],
+    develop: [['D'], false, 'If a development server should be started'],
+    nonode: [['no-node', 'nonodemodules', 'no-node-modules'], false, 'If node_modules should or should not be copied']
 }, process.argv);
 global.nostd = args.nostdio[0] === 't' || args.nostdio[0] === 'y';
-const manager = new PrecompManager(args.output, args.domain, args.username, args.password);
-if (args.target) {
-    if (fs.statSync(args.target).isDirectory()) {
-        manager.entry = path.resolve(args.target) + '/';
-        manager.makeIgnored();
-        manager.getPrecomps();
-        manager.buildAll();
-        return;
+const manager = new PrecompManager(args.output, args.nonode, args.domain, args.username, args.password);
+const promise = (() => {
+    if (args.target) {
+        if (fs.statSync(args.target).isDirectory()) {
+            manager.entry = path.resolve(args.target) + '/';
+            manager.makeIgnored();
+            manager.getPrecomps();
+            manager.buildAll();
+            return;
+        }
+        return manager.getFile(args.target, true)
+            .then(([path, file]) => console.log(path));
+    } else {
+        return manager.buildAll();
     }
-    manager.getFile(args.target, true)
-        .then(([path, file]) => console.log(path));
-} else manager.buildAll();
+})();
+if (args.develop) {
+    globalThis.isBuild = true;
+    const manager = new PrecompManager('dist');
+    process.on('exit', () => fs.rmSync(manager.buildDir, { recursive: true, force: true }));
+    const evs = new EventEmitter();
+    app.ws('/debug/:file', async (req, res) => {
+        const socket = await res.accept();
+        evs.on('update', file => {
+            if (file.endsWith(req.params.file)) 
+                socket.send('reload');
+        });
+        evs.on('delete', file => {
+            if (file.endsWith(req.params.file)) 
+                socket.send('close');
+        });
+    })
+    app.useHTTP(cors());
+    const index = '/index.php';
+    app.useHTTP(async (req, res) => {
+        const file = path.resolve(manager.buildDir, `.${req.path === '/' ? index : req.path}`);
+        if (file.endsWith('.php')) {
+            console.log('running php');
+            const { headers, status, html } = await runPHP(req, file)
+            for (const header of Object.entries(headers))
+                res.header(...header);
+            res.status(status);
+            data = html;
+        }
+        // always explicitly set the mime type to the *output* of runing the precomps
+        const mimeType = mime.lookup(file.replace('.php', '.html'), 'text/plain');
+        res.header('Content-Type', mimeType);
+        return res.sendFile(file);
+    })
+
+    const port = 3000
+    promise.then(() => {
+        let needsRebuild = false;
+        const changed = [];
+        fs.watch(manager.entry, { recursive: true }, (ev, file) => {
+            file = path.resolve(file);
+            if (path.basename(file) === '.buildignore') 
+                return manager.makeIgnored();
+            if (path.extname(file) === '.precomp.js') {
+                needsRebuild = true;
+                return manager.getPrecomps();
+            }
+            if (manager.isIgnored.test(file)) return;
+            needsRebuild = true;
+            if (ev === 'rename')
+                fs.rm(manager.built[file], { force: true });
+            delete manager.built[file];
+            for (const dependant of manager.depends[file] ?? []) {
+                delete manager.built[dependant];
+                if (ev === 'rename')
+                    fs.rm(manager.built[file], { force: true });
+            }
+            if (ev === 'change') changed.push(file);
+            else evs.emit('removed'. file);
+        });
+        async function checkRebuild() {
+            if (needsRebuild) {
+                needsRebuild = false;
+                const withRemoved = Object.keys(manager.built);
+                await manager.buildAll(false);
+                for (const file of Object.keys(manager.built))
+                    if (!withRemoved.includes(file) && changed.includes(file))
+                        evs.emit('update', file);
+            }
+            setTimeout(checkRebuild, 3000);
+        }
+        checkRebuild();
+        app.listen(port, async () => {
+            console.log(`hosted on http://localhost:${port}`);
+            console.log('');
+            const dirs = Object.values(manager.built);
+            for (const file of dirs) {
+                const extName = path.extname(file)
+                const url = file.replaceAll('\\', '/').replace(manager.buildDir, '');
+                if ((extName === '.php' || extName === '.html') && !file.includes('node_modules') && !file.includes('useless-history')) {
+                    console.log('page', `http://localhost:${port}${url}`);
+                }
+            }
+            console.log('');
+        })
+    });
+}
