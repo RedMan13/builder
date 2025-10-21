@@ -8,7 +8,7 @@ const { WebSocketExpress } = require('websocket-express');
 const cors = require('cors')
 const app = new WebSocketExpress();
 const runPHP = require('../lib/php-execute.js');
-const mime = require('mime');
+const mime = require('mime-types');
 const { EventEmitter } = require('stream');
 const codes = {
     /** This interim response indicates that the client should continue the request or ignore the response if the request is already finished. */
