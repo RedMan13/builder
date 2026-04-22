@@ -161,8 +161,7 @@ const args = parseArgs({
     develop: [['D'], false, 'If a development server should be started'],
     nonode: [['no-node', 'nonodemodules', 'no-node-modules'], false, 'If node_modules should or should not be copied']
 }, process.argv);
-global.nostd = args.nostdio[0] === 't' || args.nostdio[0] === 'y';
-console.log('configured output with nostd', nostd, '(', args.nostdio.slice(0, 1), ')');
+global.nostd = args.nostdio;
 const manager = new PrecompManager(args.output, !args.nonode, args.domain, args.username, args.password);
 const promise = (() => {
     if (args.target) {
