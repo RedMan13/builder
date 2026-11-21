@@ -230,6 +230,8 @@ if (args.develop) {
             file = path.resolve(file);
             if (path.basename(file) === '.buildignore') 
                 return manager.makeIgnored();
+            if (path.basename(file) === '.linked-projects') 
+                return manager.applyLinks();
             if (path.extname(file) === '.precomp.js') {
                 needsRebuild = true;
                 return manager.getPrecomps();
